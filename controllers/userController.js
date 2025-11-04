@@ -12,6 +12,8 @@ export const getUserData = async (req, res) => {
 
         const userId = req.auth.userId
 
+        console.log(userId)
+
         const user = await User.findById(userId)
 
         if (!user) {
@@ -21,6 +23,7 @@ export const getUserData = async (req, res) => {
         res.json({ success: true, user })
 
     } catch (error) {
+        console.log(error)
         res.json({ success: false, message: error.message })
     }
 }
@@ -36,10 +39,11 @@ export const purchaseCourse = async (req, res) => {
 
         const userId = req.auth.userId
 
-        const courseData = await Course.findById(courseId)
-        const userData = await User.findById(userId)
+        console.log(userId)
 
-        if (!userData || !courseData) {
+        const courseData = await Course.findById(courseId)
+
+        if (!courseData) {
             return res.json({ success: false, message: 'Data Not Found' })
         }
 
@@ -78,11 +82,32 @@ export const purchaseCourse = async (req, res) => {
             }
         })
 
+        console.log(session)
+
         res.json({ success: true, session_url: session.url });
 
 
     } catch (error) {
         res.json({ success: false, message: error.message });
+    }
+}
+
+export const verifyPurchase = async (req, res) => {
+
+    try {
+
+        const { purchaseId } = req.body
+
+        const purchase = await Purchase.findById(purchaseId)
+
+        if (!purchase) {
+            return res.json({ success: false, message: 'Purchase Not Found' })
+        }
+
+        res.json({ success: true, purchase })
+
+    } catch (error) {
+        res.json({ success: false, message: error.message })
     }
 }
 
@@ -93,10 +118,12 @@ export const userEnrolledCourses = async (req, res) => {
 
         const userId = req.auth.userId
 
-        const userData = await User.findById(userId)
-            .populate('enrolledCourses')
+        const enrolledCourses = await Purchase.find({ userId, status: 'completed' })
+            .populate({ path: 'courseId', select: '_id courseTitle courseDescription courseImage' })
 
-        res.json({ success: true, enrolledCourses: userData.enrolledCourses })
+        console.log(enrolledCourses)
+
+        res.json({ success: true, enrolledCourses })
 
     } catch (error) {
         res.json({ success: false, message: error.message })

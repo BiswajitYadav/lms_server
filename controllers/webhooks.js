@@ -71,6 +71,7 @@ const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
 
 // Stripe Webhooks to Manage Payments Action
 export const stripeWebhooks = async (request, response) => {
+
   const sig = request.headers['stripe-signature'];
 
   let event;
@@ -85,6 +86,8 @@ export const stripeWebhooks = async (request, response) => {
   // Handle the event
   switch (event.type) {
     case 'payment_intent.succeeded': {
+
+      console.log("payment success")
 
       const paymentIntent = event.data.object;
       const paymentIntentId = paymentIntent.id;
