@@ -30,7 +30,9 @@ export const getUserData = async (req, res) => {
 
 // Purchase Course 
 export const purchaseCourse = async (req, res) => {
+
     try {
+        
         const { courseId } = req.body;
         const { origin } = req.headers;
         const userId = req.auth.userId;
@@ -114,6 +116,7 @@ export const purchaseCourse = async (req, res) => {
             success: true,
             session_url: session.url,
         });
+
     } catch (error) {
         console.error("❌ purchaseCourse Error:", error);
         return res.json({ success: false, message: error.message });
@@ -152,7 +155,14 @@ export const userEnrolledCourses = async (req, res) => {
 
         console.log(enrolledCourses)
 
-        res.json({ success: true, enrolledCourses })
+        res.json({
+            success: true,
+            enrolledCourses: enrolledCourses.map(p => ({
+                ...p.toObject(),
+                ...p.courseId, // flatten course info
+                courseId: p.courseId?._id // keep reference if needed
+            }))
+        });
 
     } catch (error) {
         res.json({ success: false, message: error.message })

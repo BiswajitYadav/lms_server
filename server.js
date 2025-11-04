@@ -16,6 +16,15 @@ const app = express()
 await connectDB()
 await connectCloudinary()
 
+// ✅ Apply JSON body parser for all routes except /api/stripe/webhook
+app.use((req, res, next) => {
+  if (req.originalUrl === '/stripe') {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
+
 // Middlewares
 app.post('/stripe', express.raw({ type: 'application/json' }), stripeWebhooks)
 
@@ -24,7 +33,7 @@ app.use(clerkMiddleware())
 
 // Routes
 app.get('/', (req, res) => res.send("API Working"))
-app.post('/clerk', express.json() , clerkWebhooks)
+app.post('/clerk', express.json(), clerkWebhooks)
 app.use('/api/educator', express.json(), educatorRouter)
 app.use('/api/course', express.json(), courseRouter)
 app.use('/api/user', express.json(), userRouter)
