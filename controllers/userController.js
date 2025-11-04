@@ -32,7 +32,7 @@ export const getUserData = async (req, res) => {
 export const purchaseCourse = async (req, res) => {
 
     try {
-        
+
         const { courseId } = req.body;
         const { origin } = req.headers;
         const userId = req.auth.userId;
@@ -150,18 +150,50 @@ export const userEnrolledCourses = async (req, res) => {
 
         const userId = req.auth.userId
 
-        const enrolledCourses = await Purchase.find({ userId, status: 'completed' })
-            .populate({ path: 'courseId', select: '_id courseTitle courseDescription courseImage' })
+        const enrolledCourses = await Purchase.aggregate([
+            {
+                $match: {
+                    userId: userId,   // the logged-in user
+                    status: "completed"
+                }
+            },
+            {
+                $lookup: {
+                    from: "courses",            // your courses collection
+                    localField: "courseId",
+                    foreignField: "_id",
+                    as: "courseData"
+                }
+            },
+            { $unwind: "$courseData" },
+            {
+                // optional: include only necessary fields for frontend
+                $project: {
+                    _id: "$courseData._id",
+                    courseTitle: "$courseData.courseTitle",
+                    courseDescription: "$courseData.courseDescription",
+                    courseCategory: "$courseData.courseCategory",
+                    coursePrice: "$courseData.coursePrice",
+                    discount: "$courseData.discount",
+                    courseThumbnail: "$courseData.courseThumbnail",
+                    courseRatings: "$courseData.courseRatings",
+                    courseContent: "$courseData.courseContent",
+                    createdAt: "$courseData.createdAt",
+                    updatedAt: "$courseData.updatedAt",
 
-        console.log(enrolledCourses)
+                    // optional extra info from purchase
+                    purchaseId: "$_id",
+                    purchaseAmount: "$amount",
+                    purchaseStatus: "$status",
+                    purchaseDate: "$createdAt",
+                    enrolledStudentsCount: { $size: "$courseData.enrolledStudents" }
+                }
+            }
+        ]);
 
         res.json({
             success: true,
-            enrolledCourses: enrolledCourses.map(p => ({
-                ...p.toObject(),
-                ...p.courseId, // flatten course info
-                courseId: p.courseId?._id // keep reference if needed
-            }))
+            enrolledCourses
         });
 
     } catch (error) {

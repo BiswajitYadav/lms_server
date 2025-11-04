@@ -1,46 +1,57 @@
-import express from 'express'
-import cors from 'cors'
-import 'dotenv/config'
-import connectDB from './configs/mongodb.js'
-import connectCloudinary from './configs/cloudinary.js'
-import userRouter from './routes/userRoutes.js'
-import { clerkMiddleware } from '@clerk/express'
-import { clerkWebhooks, stripeWebhooks } from './controllers/webhooks.js'
-import educatorRouter from './routes/educatorRoutes.js'
-import courseRouter from './routes/courseRoute.js'
+import express from "express";
+import cors from "cors";
+import "dotenv/config";
+import connectDB from "./configs/mongodb.js";
+import connectCloudinary from "./configs/cloudinary.js";
+import userRouter from "./routes/userRoutes.js";
+import educatorRouter from "./routes/educatorRoutes.js";
+import courseRouter from "./routes/courseRoute.js";
+import { clerkMiddleware } from "@clerk/express";
+import { clerkWebhooks, stripeWebhooks } from "./controllers/webhooks.js";
 
-// Initialize Express
-const app = express()
+// ----------------------------------
+// Initialize App + DB connections
+// ----------------------------------
+const app = express();
+await connectDB();
+await connectCloudinary();
 
-// Connect to database
-await connectDB()
-await connectCloudinary()
-
-// ✅ Apply JSON body parser for all routes except /api/stripe/webhook
 app.use((req, res, next) => {
-  if (req.originalUrl === '/stripe') {
-    next();
+  if (req.originalUrl === "/clerk" || req.originalUrl === "/stripe") {
+    next(); // Skip for Clerk and Stripe
   } else {
     express.json()(req, res, next);
   }
 });
 
-// Middlewares
+app.use(cors());
 
-app.use(cors())
-app.use(clerkMiddleware())
+// ----------------------------------
+// ✅ Webhook routes FIRST (must get raw body)
+// ----------------------------------
+app.post("/clerk", express.raw({ type: "application/json" }), clerkWebhooks);
+app.post("/stripe", express.raw({ type: "application/json" }), stripeWebhooks);
 
-// Routes
-app.get('/', (req, res) => res.send("API Working"))
-app.post('/clerk', express.raw({ type: 'application/json' }), clerkWebhooks)
-app.post('/stripe', express.raw({ type: 'application/json' }), stripeWebhooks)
-app.use('/api/educator', express.json(), educatorRouter)
-app.use('/api/course', express.json(), courseRouter)
-app.use('/api/user', express.json(), userRouter)
+// ----------------------------------
+// ✅ Clerk middleware AFTER webhooks
+// ----------------------------------
+app.use(clerkMiddleware());
 
-// Port
-const PORT = process.env.PORT || 5000
+// ----------------------------------
+// ✅ Normal JSON parser for other routes
+// ----------------------------------
+app.use(express.json());
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-})
+// ----------------------------------
+// API Routes
+// ----------------------------------
+app.get("/", (req, res) => res.send("API Working"));
+app.use("/api/educator", educatorRouter);
+app.use("/api/course", courseRouter);
+app.use("/api/user", userRouter);
+
+// ----------------------------------
+// ✅ Start server
+// ----------------------------------
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
