@@ -74,6 +74,8 @@ export const stripeWebhooks = async (request, response) => {
 
   const sig = request.headers['stripe-signature'];
 
+  console.log("✅ Stripe webhook endpoint hit");
+
   let event;
 
   try {
