@@ -30,67 +30,96 @@ export const getUserData = async (req, res) => {
 
 // Purchase Course 
 export const purchaseCourse = async (req, res) => {
-
     try {
+        const { courseId } = req.body;
+        const { origin } = req.headers;
+        const userId = req.auth.userId;
 
-        const { courseId } = req.body
-        const { origin } = req.headers
-
-
-        const userId = req.auth.userId
-
-        console.log(userId)
-
-        const courseData = await Course.findById(courseId)
-
+        // Validate course
+        const courseData = await Course.findById(courseId);
         if (!courseData) {
-            return res.json({ success: false, message: 'Data Not Found' })
+            return res.json({ success: false, message: "Course not found" });
         }
 
-        const purchaseData = {
+        // Compute final price after discount
+        const finalAmount = (
+            courseData.coursePrice -
+            (courseData.discount * courseData.coursePrice) / 100
+        ).toFixed(2);
+
+        // Create purchase record
+        const newPurchase = await Purchase.create({
             courseId: courseData._id,
             userId,
-            amount: (courseData.coursePrice - courseData.discount * courseData.coursePrice / 100).toFixed(2),
+            amount: finalAmount,
+            status: courseData.coursePrice === 0 ? "completed" : "pending",
+        });
+
+        // --------------------------------------------------------
+        // 🆓 FREE COURSE LOGIC
+        // --------------------------------------------------------
+        if (courseData.coursePrice === 0 || Number(finalAmount) === 0) {
+            // Mark purchase as completed
+            newPurchase.status = "completed";
+            await newPurchase.save();
+
+            // Enroll the user in the course
+            const userData = await User.findById(userId);
+            if (userData && !userData.enrolledCourses.includes(courseData._id)) {
+                userData.enrolledCourses.push(courseData._id);
+                await userData.save();
+            }
+
+            if (!courseData.enrolledStudents.includes(userData._id)) {
+                courseData.enrolledStudents.push(userData._id);
+                await courseData.save();
+            }
+
+            return res.json({
+                success: true,
+                message: "Free course enrolled successfully",
+                redirect: `${origin}/loading/my-enrollments`,
+                purchase: newPurchase,
+            });
         }
 
-        const newPurchase = await Purchase.create(purchaseData)
+        // --------------------------------------------------------
+        // 💳 PAID COURSE LOGIC
+        // --------------------------------------------------------
+        const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
+        const currency = process.env.CURRENCY.toLowerCase();
 
-        // Stripe Gateway Initialize
-        const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
-
-        const currency = process.env.CURRENCY.toLocaleLowerCase()
-
-        // Creating line items to for Stripe
-        const line_items = [{
-            price_data: {
-                currency,
-                product_data: {
-                    name: courseData.courseTitle
+        const line_items = [
+            {
+                price_data: {
+                    currency,
+                    product_data: { name: courseData.courseTitle },
+                    unit_amount: Math.round(finalAmount * 100), // convert to cents
                 },
-                unit_amount: Math.floor(newPurchase.amount) * 100
+                quantity: 1,
             },
-            quantity: 1
-        }]
+        ];
 
         const session = await stripeInstance.checkout.sessions.create({
             success_url: `${origin}/loading/my-enrollments`,
             cancel_url: `${origin}/`,
-            line_items: line_items,
-            mode: 'payment',
+            line_items,
+            mode: "payment",
             metadata: {
-                purchaseId: newPurchase._id.toString()
-            }
-        })
+                purchaseId: newPurchase._id.toString(),
+            },
+        });
 
-        console.log(session)
-
-        res.json({ success: true, session_url: session.url });
-
-
+        return res.json({
+            success: true,
+            session_url: session.url,
+        });
     } catch (error) {
-        res.json({ success: false, message: error.message });
+        console.error("❌ purchaseCourse Error:", error);
+        return res.json({ success: false, message: error.message });
     }
-}
+};
+
 
 export const verifyPurchase = async (req, res) => {
 
