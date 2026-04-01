@@ -6,6 +6,7 @@ import connectCloudinary from "./configs/cloudinary.js";
 import userRouter from "./routes/userRoutes.js";
 import educatorRouter from "./routes/educatorRoutes.js";
 import courseRouter from "./routes/courseRoute.js";
+import examRouter from "./routes/examRoutes.js";
 import { clerkMiddleware } from "@clerk/express";
 import { clerkWebhooks, stripeWebhooks } from "./controllers/webhooks.js";
 
@@ -51,6 +52,7 @@ app.get("/", (req, res) => res.send("API Working"));
 app.use("/api/educator", educatorRouter);
 app.use("/api/course", courseRouter);
 app.use("/api/user", userRouter);
+app.use("/api/exam", examRouter);
 
 // ----------------------------------
 // ✅ Start server
