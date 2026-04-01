@@ -267,3 +267,33 @@ export const getCourseExamResults = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
+
+// ─── Educator: Delete Exam for a Course ──────────────────────────────────────
+// DELETE /api/exam/:courseId
+export const deleteExam = async (req, res) => {
+    try {
+        const educatorId = req.auth.userId;
+        const { courseId } = req.params;
+
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.json({ success: false, message: 'Course not found.' });
+        }
+        if (course.educator !== educatorId) {
+            return res.json({ success: false, message: 'Unauthorized: You are not the owner of this course.' });
+        }
+
+        const exam = await Exam.findOne({ courseId });
+        if (!exam) {
+            return res.json({ success: false, message: 'No exam found for this course.' });
+        }
+
+        // Cascade: delete all student results for this exam
+        await Result.deleteMany({ examId: exam._id });
+        await exam.deleteOne();
+
+        res.json({ success: true, message: 'Exam deleted successfully.' });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};

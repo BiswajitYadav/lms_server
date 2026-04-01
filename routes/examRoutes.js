@@ -5,7 +5,8 @@ import {
     getExam,
     submitExam,
     getResult,
-    getCourseExamResults
+    getCourseExamResults,
+    deleteExam
 } from '../controllers/examController.js';
 
 const examRouter = express.Router();
@@ -24,5 +25,8 @@ examRouter.get('/result/:courseId', getResult);
 
 // Student: get exam questions for a course (enrolled + completed only)
 examRouter.get('/:courseId', getExam);
+
+// Educator: delete exam for a course (must be course owner)
+examRouter.delete('/:courseId', protectEducator, deleteExam);
 
 export default examRouter;
