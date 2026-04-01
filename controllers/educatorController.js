@@ -3,6 +3,9 @@ import Course from '../models/Course.js';
 import { Purchase } from '../models/Purchase.js';
 import User from '../models/User.js';
 import { clerkClient } from '@clerk/express'
+import Exam from '../models/Exam.js';
+import Result from '../models/Result.js';
+import { CourseProgress } from '../models/CourseProgress.js'
 
 // update role to educator
 export const updateRoleToEducator = async (req, res) => {
@@ -157,5 +160,72 @@ export const getEnrolledStudentsData = async (req, res) => {
             success: false,
             message: error.message
         });
+    }
+};
+
+// Update Course (educator must be the owner)
+export const updateCourse = async (req, res) => {
+    try {
+        const educatorId = req.auth.userId;
+        const { courseId } = req.params;
+        const { courseData } = req.body;
+        const imageFile = req.file;
+
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.json({ success: false, message: 'Course not found.' });
+        }
+        if (course.educator !== educatorId) {
+            return res.json({ success: false, message: 'Unauthorized: You are not the owner of this course.' });
+        }
+
+        if (courseData) {
+            const parsedCourseData = JSON.parse(courseData);
+            delete parsedCourseData.educator;
+            Object.assign(course, parsedCourseData);
+        }
+
+        if (imageFile) {
+            const imageUpload = await cloudinary.uploader.upload(imageFile.path);
+            course.courseThumbnail = imageUpload.secure_url;
+        }
+
+        await course.save();
+
+        res.json({ success: true, message: 'Course updated successfully.', course });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// Delete Course (educator must be the owner); cascades to exam, results, and progress
+export const deleteCourse = async (req, res) => {
+    try {
+        const educatorId = req.auth.userId;
+        const { courseId } = req.params;
+
+        const course = await Course.findById(courseId);
+        if (!course) {
+            return res.json({ success: false, message: 'Course not found.' });
+        }
+        if (course.educator !== educatorId) {
+            return res.json({ success: false, message: 'Unauthorized: You are not the owner of this course.' });
+        }
+
+        // Cascade: delete exam and its results
+        const exam = await Exam.findOne({ courseId });
+        if (exam) {
+            await Result.deleteMany({ examId: exam._id });
+            await exam.deleteOne();
+        }
+
+        // Cascade: delete course progress records
+        await CourseProgress.deleteMany({ courseId });
+
+        await course.deleteOne();
+
+        res.json({ success: true, message: 'Course deleted successfully.' });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
     }
 };
