@@ -7,6 +7,7 @@ import userRouter from "./routes/userRoutes.js";
 import educatorRouter from "./routes/educatorRoutes.js";
 import courseRouter from "./routes/courseRoute.js";
 import examRouter from "./routes/examRoutes.js";
+import discussionRouter from "./routes/discussionRoutes.js";
 import { clerkMiddleware } from "@clerk/express";
 import { clerkWebhooks, stripeWebhooks } from "./controllers/webhooks.js";
 
@@ -53,6 +54,7 @@ app.use("/api/educator", educatorRouter);
 app.use("/api/course", courseRouter);
 app.use("/api/user", userRouter);
 app.use("/api/exam", examRouter);
+app.use("/api/discussion", discussionRouter);
 
 // ----------------------------------
 // ✅ Start server
